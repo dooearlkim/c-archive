@@ -31,13 +31,13 @@ create or replace function public.my_label() returns text
 language sql stable security definer set search_path = public as $$
   select coalesce((select name || '(' || student_id || ')' from profiles where id = auth.uid()), '-') $$;
 
--- 가입 시 프로필 자동 생성. 학번은 로그인 아이디(s학번@...)에서 가져오므로 위조할 수 없습니다.
+-- 가입 시 프로필 자동 생성. 학번은 로그인 아이디(학생회메일+s학번@...)에서 가져오므로 위조할 수 없습니다.
 -- 활성 운영자가 한 명도 없으면 첫 가입자를 운영자로 지정합니다.
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare sid text; nm text; first_admin boolean;
 begin
-  sid := substring(new.email from '^s([0-9]{8,10})@');
+  sid := substring(new.email from '(?:^|\+)s([0-9]{8,10})@');
   if sid is null then raise exception '학번 형식이 올바르지 않습니다.'; end if;
   nm := left(trim(coalesce(new.raw_user_meta_data->>'name', '')), 20);
   if nm = '' then raise exception '이름을 입력해 주세요.'; end if;
