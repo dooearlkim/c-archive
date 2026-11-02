@@ -4,7 +4,6 @@
 window.CA_CONFIG = {
   supabaseUrl: 'https://dwjbybcoasgphnrwvudt.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3amJ5YmNvYXNncGhucnd2dWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2MDQxMjgsImV4cCI6MjEwOTE4MDEyOH0.DHbN1YoOH3VgeWErO9pn07iNWDRZmbwdQZnR0PsDE3A',
-  // 학생회 공용 Gmail 주소. 학번을 로그인 아이디로 바꿀 때 씁니다 (예: 이주소+s2026123456@gmail.com).
-  // 실제로 메일을 보내지는 않습니다. ⚠ 회원이 생긴 뒤에는 바꾸지 마세요(기존 회원이 로그인할 수 없게 됨).
+  // (선택) 비워 두면 됩니다. 회원이 생긴 뒤에는 바꾸지 마세요(기존 회원이 로그인할 수 없게 됨).
   loginEmail: '',
 };

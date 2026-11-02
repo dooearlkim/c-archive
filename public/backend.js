@@ -5,12 +5,13 @@
   const CFG = window.CA_CONFIG || {};
   const configured = !!(CFG.supabaseUrl && CFG.supabaseAnonKey && !/여기에/.test(CFG.supabaseUrl + CFG.supabaseAnonKey));
   const sb = configured ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ca-auth' } }) : null;
-  // 학번 → 로그인용 이메일. Supabase가 실제 메일 도메인만 허용하므로 학생회 Gmail의 '+' 별칭을 씁니다.
-  // 예: loginEmail 'cban.archive@gmail.com' → cban.archive+s2026123456@gmail.com (실제 메일은 보내지 않음)
+  // 학번 → 로그인용 내부 아이디. Supabase 로그인은 이메일 모양 아이디만 받고, 실제 메일 도메인이어야 해서
+  // 학번을 carchive.s학번@gmail.com 모양으로 바꿉니다. 메일은 절대 보내지 않으며(이메일 확인 꺼짐) 학생에게 보이지도 않습니다.
+  // (config.js에 loginEmail을 넣으면 그 주소의 '+' 별칭을 대신 씁니다.)
   const emailOf = sid => {
     const base = String(CFG.loginEmail || '').trim();
     if (/^[^@\s+]+@[^@\s]+\.[^@\s]+$/.test(base)) { const [local, domain] = base.split('@'); return `${local}+s${sid}@${domain}`; }
-    return `s${sid}@${CFG.loginDomain || 'c-archive.kr'}`;
+    return `carchive.s${sid}@gmail.com`;
   };
   const pwOf = (sid, pin) => `ca1-${sid}-${pin}`;
   const ROLE_LABEL = { member: '일반', exec: '집행부', admin: '운영자' };
@@ -274,7 +275,6 @@
     return { method, re: new RegExp('^' + pat.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), fn };
   });
   async function api(method, url, body, raw) {
-    if (sb && !CFG.loginEmail && /signup|login/.test(url)) fail(503, '로그인용 이메일(config.js의 loginEmail)이 아직 설정되지 않았습니다.');
     if (!sb) fail(503, '아직 Supabase 연결 정보가 설정되지 않았습니다. config.js를 확인해 주세요.');
     for (const r of compiled) {
       if (r.method !== method) continue;
