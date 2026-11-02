@@ -1,0 +1,19 @@
+name: Supabase 일시정지 방지
+# Supabase 무료 요금제는 7일간 사용이 없으면 프로젝트를 멈춥니다. 매일 한 번 가볍게 접속해 둡니다.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ping
+        run: |
+          URL=$(grep -oE "supabaseUrl: *'[^']+'" public/config.js | sed -E "s/.*'(.*)'/\1/")
+          KEY=$(grep -oE "supabaseAnonKey: *'[^']+'" public/config.js | sed -E "s/.*'(.*)'/\1/")
+          case "$URL" in https://*) ;; *) echo "config.js에 Supabase 주소가 아직 없습니다."; exit 0;; esac
+          curl -fsS -X POST "$URL/rest/v1/rpc/ping" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}'
