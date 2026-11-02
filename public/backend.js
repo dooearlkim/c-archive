@@ -138,7 +138,8 @@
         tasks: of('task'), recurring: of('recurring'),
         documents: of('document').map(d => ({ ...d, files: files.filter(f => f.doc_id === d.id).map(f => ({ id: f.id, name: f.name, size: f.size, path: f.path, uploaded_at: f.uploaded_at })) })),
         hiddenTasks: hidden?.tasks || {}, hiddenDocs: hidden?.docs || 0,
-        handover: hos.length ? { meta: set.handover || {}, sections: hos } : null,
+        // 집행부·운영자는 노트가 아직 없어도 잠금 대신 빈 화면(운영자는 추가 버튼)을 봅니다.
+        handover: (hos.length || me.role === 'exec' || me.role === 'admin') ? { meta: set.handover || {}, sections: hos } : null,
         pendingCount: hidden?.pending || 0,
         empty: !items.length,
       };

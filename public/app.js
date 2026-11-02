@@ -27,7 +27,7 @@ async function api(method, url, body, raw) {
 
 const ROLE_LABEL = { member: '일반', exec: '집행부', admin: '운영자' };
 const RANK = { member: 1, exec: 2, admin: 3 };
-const VIS_OPTS = [['member', '일반 — C반 전체 공개'], ['exec', '집행부 이상'], ['admin', '운영자만']];
+const VIS_OPTS = [['member', '일반 — 모든 회원 (일반·집행부·운영자)'], ['exec', '집행부 이상 (집행부·운영자)'], ['admin', '운영자만']];
 const visChip = v => v === 'admin' ? '<span class="chip admin">🔒 운영자</span>' : v === 'exec' ? '<span class="chip exec">🔒 집행부</span>' : '<span class="chip member">C반 공개</span>';
 const KIND = { event: ['행사', '🎉'], task: ['업무', '✅'], meeting: ['회의', '🗂'] };
 const TAG_IC = { '고연전': '⚾', '응원·합응': '📣', '간식·공부행사': '🍙', '개강·교류': '🍻', '단체사진': '📸', '굿즈·공동구매': '🧥', '선거·회의': '🗳', '기타': '📌' };
@@ -302,6 +302,11 @@ function viewHandover() {
     return `<div class="locked" style="padding:36px 18px"><div style="font-size:34px">🔒</div><p style="font-weight:700;color:var(--ink);margin:8px 0 4px">집행부 전용</p><p style="margin:0">전임 회장단의 인수인계 노트는 집행부 이상 권한으로만 볼 수 있습니다. 권한이 필요하면 운영자에게 요청하세요.</p></div>`;
   }
   const { meta, sections } = DATA.handover;
+  if (!sections.length) {
+    return `<div class="empty" style="padding:36px 16px"><div style="font-size:34px">📘</div><p style="font-weight:700;color:var(--ink);margin:8px 0 4px">아직 인수인계 노트가 없습니다</p>
+      <p style="margin:0">${isAdmin() ? '「관리 → 백업·가져오기」에서 초기 자료를 가져오거나, 아래 버튼으로 직접 작성하세요.' : '운영자가 노트를 등록하면 여기에 표시됩니다.'}</p>
+      ${isAdmin() ? `<div class="actions" style="justify-content:center"><button class="btn sm" data-act="new" data-kind="handover">+ 장 추가</button><button class="ghost sm" data-act="admin-tab" data-tab="audit">초기 자료 가져오기</button></div>` : ''}</div>`;
+  }
   const pinned = sections.find(s => s.pinned);
   const advice = pinned ? String(pinned.body).split('\n').filter(l => /^\d+[.)]\s/.test(l)).map(l => l.replace(/^\d+[.)]\s/, '')) : [];
   return `${meta.preface ? `<div class="warnbox"><b>공유 금지</b> · ${esc(meta.preface)}</div>` : ''}
@@ -332,14 +337,15 @@ function viewAdmin() {
   const body = t === 'users' ? adminUsers() : t === 'kakao' ? adminKakao() : t === 'content' ? adminContent() : t === 'settings' ? adminSettings() : adminAudit();
   return `<div class="scroller">${tabs.map(([k, l, c]) => `<button class="pill ${k === t ? 'on' : ''}" data-act="admin-tab" data-tab="${k}">${l}${c ? ` <span class="cnt">${c}</span>` : ''}</button>`).join('')}</div><div class="sec" style="margin-top:14px">${body}</div>`;
 }
-const roleSelect = (id, cur, placeholder) => `<select class="input" id="${id}" aria-label="권한">${placeholder ? `<option value="">${placeholder}</option>` : ''}${['member', 'exec', 'admin'].map(r => `<option value="${r}" ${r === cur ? 'selected' : ''}>${ROLE_LABEL[r]}${r === 'member' ? ' (C반 공용)' : r === 'admin' ? ' (회장·부회장)' : ''}</option>`).join('')}</select>`;
+const roleSelect = (id, cur, placeholder) => `<select class="input" id="${id}" aria-label="권한">${placeholder ? `<option value="">${placeholder}</option>` : ''}${['member', 'exec', 'admin'].map(r => `<option value="${r}" ${r === cur ? 'selected' : ''}>${ROLE_LABEL[r]}${r === 'member' ? ' — 일반 자료' : r === 'exec' ? ' — 일반 + 집행부 자료' : ' — 전체 자료 + 관리 (회장·부회장)'}</option>`).join('')}</select>`;
 function adminUsers() {
   if (!ui.users) { loadUsers(); return '<div class="empty">불러오는 중…</div>'; }
   const pend = ui.users.filter(u => u.status === 'pending');
   const F = { all: '전체', admin: '운영자', exec: '집행부', member: '일반', off: '중지·거절' };
   const rest = ui.users.filter(u => u.status !== 'pending').filter(u => ui.ufilter === 'all' || (ui.ufilter === 'off' ? u.status !== 'active' : u.status === 'active' && u.role === ui.ufilter));
   const st = u => u.status === 'active' ? '' : `<span class="chip warn">${u.status === 'rejected' ? '거절됨' : '이용 중지'}</span>`;
-  return `<div class="sec-h"><h2>승인 대기 ${pend.length}명</h2></div>
+  return `<p class="note" style="margin:0 0 14px">권한은 위로 갈수록 아래 권한을 모두 포함합니다. <b>운영자</b> = 집행부 + 일반 자료 열람 + 관리 기능, <b>집행부</b> = 일반 + 집행부 자료, <b>일반</b> = 일반 자료.</p>
+    <div class="sec-h"><h2>승인 대기 ${pend.length}명</h2></div>
     <div class="stack">${pend.map(u => `<div class="card user"><div class="user-h"><div><b>${esc(u.name)}</b><small>${esc(u.student_id)} · 신청 ${esc(fmtDT(u.created_at))}</small></div></div>
       <div class="grid2">${roleSelect('role-' + u.id, '', '권한 선택 (필수)')}<button class="btn sm" data-act="approve" data-id="${u.id}">승인</button></div>
       <div class="actions" style="margin:0"><button class="ghost sm danger" data-act="uact" data-do="reject" data-id="${u.id}">거절</button></div></div>`).join('') || '<div class="empty" style="padding:18px">대기 중인 가입 신청이 없습니다.</div>'}</div>
