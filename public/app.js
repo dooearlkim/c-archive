@@ -153,7 +153,7 @@ function noticeRow(n, q) {
   return `<button class="row" data-act="notice" data-id="${esc(n.id)}"><span class="ic">${TAG_IC[n.tag] || '📌'}</span><span class="bd"><span class="tt">${hl(n.title)}</span><span class="sub">${fmtDate(n.date)} · ${esc(n.tag)}${n.followups?.length ? ` · 후속 ${n.followups.length}` : ''}${n.vis !== 'member' ? ' · ' + (n.vis === 'exec' ? '🔒집행부' : '🔒운영자') : ''}</span></span><span class="chev">›</span></button>`;
 }
 const linkRow = (act, attrs, ic, title, sub, chev = '›') => `<button class="row" data-act="${act}" ${attrs}><span class="ic">${ic}</span><span class="bd"><span class="tt">${esc(title)}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="chev">${chev}</span></button>`;
-function viewHome() {
+function homeBody() {
   const m = curMonth(), meta = DATA.months.meta?.[m] || {};
   const items = DATA.tasks.filter(t => t.month === m);
   const q = ui.hq.trim();
@@ -182,9 +182,12 @@ function viewHome() {
       ${linkRow('go', 'data-page="handover"', '📘', '전임 회장단 인수인계 노트', DATA.handover ? '행사·회의·예결산·인간관계·조언' : '집행부 전용입니다', DATA.handover ? '›' : '🔒')}
     </div></section>`;
   }
+  return body;
+}
+function viewHome() {
   return `<section class="hero"><small>C ARCHIVE · HANDOVER</small><h2>기록을 잇고,<br>다음 학생회를 준비합니다.</h2><p>${esc(DATA.site.org)}</p>
     <div class="meta"><span>${esc(DATA.site.council || '')}</span><span>${esc(DATA.me.name)} · ${esc(DATA.me.roleLabel)}</span></div></section>
-    <div class="sec search">${svg(ICONS.search)}<input id="hq" type="search" placeholder="공지·업무·문서 통합 검색" value="${esc(ui.hq)}" aria-label="통합 검색"></div>${body}`;
+    <div class="sec search">${svg(ICONS.search)}<input id="hq" type="search" placeholder="공지·업무·문서 통합 검색" value="${esc(ui.hq)}" aria-label="통합 검색" autocomplete="off"></div><div id="home-body">${homeBody()}</div>`;
 }
 
 /* ===================== 화면: 월별 ===================== */
@@ -221,17 +224,20 @@ function viewMonths(arg) {
 }
 
 /* ===================== 화면: 공지 ===================== */
-function viewNotices() {
-  const tags = ['all', ...new Set(DATA.notices.map(n => n.tag))];
+function noticeList() {
   const q = ui.nq.trim().toLowerCase();
   const list = DATA.notices.filter(n => (ui.ntag === 'all' || n.tag === ui.ntag) && (!q || [n.title, n.body, n.tag, ...n.followups.map(f => f.text)].join(' ').toLowerCase().includes(q)));
   const groups = {};
   list.forEach(n => (groups[n.date.slice(0, 7)] ||= []).push(n));
+  return Object.keys(groups).map(k => `<div class="group-label">${Number(k.slice(0, 4))}년 ${Number(k.slice(5))}월 · ${groups[k].length}건</div><div class="stack">${groups[k].map(n => noticeRow(n, ui.nq.trim())).join('')}</div>`).join('') || '<div class="empty">조건에 맞는 공지가 없습니다.</div>';
+}
+function viewNotices() {
+  const tags = ['all', ...new Set(DATA.notices.map(n => n.tag))];
   return `${isAdmin() ? `<div class="actions" style="margin:0 0 12px"><button class="btn sm" data-act="admin-tab" data-tab="kakao">카톡 대화 올리기</button><button class="ghost sm" data-act="new" data-kind="notice">+ 직접 작성</button></div>` : ''}
-    <div class="search">${svg(ICONS.search)}<input id="nq" type="search" placeholder="제목·본문 검색" value="${esc(ui.nq)}" aria-label="공지 검색"></div>
+    <div class="search">${svg(ICONS.search)}<input id="nq" type="search" placeholder="제목·본문 검색" value="${esc(ui.nq)}" aria-label="공지 검색" autocomplete="off"></div>
     <div class="scroller" style="margin-top:12px">${tags.map(t => `<button class="pill ${t === ui.ntag ? 'on' : ''}" data-act="ntag" data-tag="${esc(t)}">${t === 'all' ? '전체' : (TAG_IC[t] || '') + ' ' + esc(t)}</button>`).join('')}</div>
     <p class="note" style="margin-top:10px">여러 학번 공지방에 같이 올린 공지는 하나로 합쳤습니다. 전화번호·계좌번호는 가렸고, 지난 행사의 신청 링크는 마감되었습니다.</p>
-    ${Object.keys(groups).map(k => `<div class="group-label">${Number(k.slice(0, 4))}년 ${Number(k.slice(5))}월 · ${groups[k].length}건</div><div class="stack">${groups[k].map(n => noticeRow(n, ui.nq.trim())).join('')}</div>`).join('') || '<div class="empty">조건에 맞는 공지가 없습니다.</div>'}`;
+    <div id="notice-list">${noticeList()}</div>`;
 }
 function viewNotice(id) {
   const n = noticeById(id);
@@ -591,9 +597,10 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'nq' || e.target.id === 'hq') {
+    // 검색창은 다시 그리지 않고 결과 영역만 바꿉니다 (한글 조합 입력이 끊기지 않도록)
     ui[e.target.id] = e.target.value;
-    const pos = e.target.selectionStart; render(true);
-    const el = document.getElementById(e.target.id); el.focus(); try { el.setSelectionRange(pos, pos); } catch {}
+    const box = document.getElementById(e.target.id === 'hq' ? 'home-body' : 'notice-list');
+    if (box) box.innerHTML = e.target.id === 'hq' ? homeBody() : noticeList();
   }
 });
 document.addEventListener('change', async e => {
